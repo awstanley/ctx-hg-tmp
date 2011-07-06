@@ -95,7 +95,7 @@ int GetKeyValueAsInt(IGameConfig *p, char *Key)
 {
 	IGameConfig *GC = p;
 	const char *Value = GC->GetKeyValue(Key);
-	if(strlen(Value) == 0)
+	if(Value == NULL)
 	{
 		return 0;
 	}
@@ -109,7 +109,7 @@ bool GetKeyValueAsBool(IGameConfig *p, char *Key)
 {
 	IGameConfig *GC = p;
 	const char *Value = GC->GetKeyValue(Key);
-	if(strlen(Value) == 0)
+	if(Value == NULL)
 	{
 		return false;
 	}
@@ -600,30 +600,13 @@ bool RestoreSet(ValveDB *DB1, ValveDB *DB2, int NAME_OFFSET, int NAME_LENGTH, si
 	return true;
 }
 
-
-cell_t GetUCharRtn(IPluginContext *pContext, unsigned char *uchar, int maxlength)
-{
-	cell_t output;
-	char *OutChar = (char *)uchar;
-	pContext->StringToLocal(output, sizeof(uchar), OutChar);
-	return output;
-}
-
-cell_t GetCharRtn(IPluginContext *pContext, const char *achar, int maxlength)
-{
-	cell_t output;
-	char *OutChar = (char *)achar;
-	pContext->StringToLocal(output, sizeof(achar), OutChar);
-	return output;
-}
-
 // ----------------------------------------------------------------------------
 // NATIVES
 // ----------------------------------------------------------------------------
 
 static cell_t CTX_Set(IPluginContext *pContext, const cell_t *params)
 {
-	char *CTX_TYPE;
+	const char *CTX_TYPE;
 	ValveDB *DB1;
 	ValveDB *DB2;
 
@@ -670,7 +653,7 @@ static cell_t CTX_Set(IPluginContext *pContext, const cell_t *params)
 			return false;
 	}
 
-	char *CTX_DTYPE;
+	const char *CTX_DTYPE;
 	switch(params[2])
 	{
 		case CTX_STRING:
@@ -747,7 +730,7 @@ static cell_t CTX_Set(IPluginContext *pContext, const cell_t *params)
 
 static cell_t CTX_Get(IPluginContext *pContext, const cell_t *params)
 {
-	char *CTX_TYPE;
+	const char *CTX_TYPE;
 	ValveDB *DB1;
 	ValveDB *DB2;
 
@@ -794,7 +777,7 @@ static cell_t CTX_Get(IPluginContext *pContext, const cell_t *params)
 			return false;
 	}
 
-	char *CTX_DTYPE;
+	const char *CTX_DTYPE;
 	switch(params[2])
 	{
 		case CTX_STRING:
