@@ -30,11 +30,9 @@
 
 
 #include "extension.h"
-//#include <icvar.h>
 #include <convar.h>
 #define GAME_DLL
 #include <eiface.h>
-#include "strlcpy.h"
 
 CTXPatcher g_CTXPatcher;
 SMEXT_LINK(&g_CTXPatcher);
@@ -595,7 +593,7 @@ bool RestoreSet(ValveDB *DB1, ValveDB *DB2, int NAME_OFFSET, int NAME_LENGTH, si
 	for(unsigned short i = DB2->First(); i != DB2->InvalidIndex(); i = DB2->Next(i))
 	{
 		char className[128];
-		strlcpy<char>(className, (char *)((unsigned char*)DB2->Element(i)+NAME_OFFSET), NAME_LENGTH);
+		memcpy(className, (char *)((unsigned char*)DB2->Element(i)+NAME_OFFSET), NAME_LENGTH);
 		RestoreSingleObject(DB1, DB2, size, className);
 	}
 	// Should never fail, if it does, uh ... I can't think of how it did.
