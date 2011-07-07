@@ -84,7 +84,15 @@ void BackUpTwoTeams(void *addr);
 // Manually written Natives
 static cell_t CTX_ResetOne(IPluginContext *pContext, const cell_t *params);
 static cell_t CTX_ResetAll(IPluginContext *pContext, const cell_t *params);
-static cell_t CTX_Set(IPluginContext *pContext, const cell_t *params);
-static cell_t CTX_Get(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_SetBool(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_GetBool(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_SetFloat(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_GetFloat(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_SetInt(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_GetInt(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_SetString(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_GetString(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_SetStringPtr(IPluginContext *pContext, const cell_t *params);
+static cell_t CTX_GetStringPtr(IPluginContext *pContext, const cell_t *params);
 
 #endif // _INCLUDE_SOURCEMOD_EXTENSION_PROPER_H_

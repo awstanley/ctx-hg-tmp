@@ -43,13 +43,6 @@
 #define CTX_WEAPON 2
 #define CTX_OBJECT 3
 
-// CTX DataTypes
-#define CTX_STRING		0
-#define CTX_BOOL		1
-#define CTX_INT			2
-#define CTX_FLOAT		3
-#define CTX_PTR_STRING	4
-
 /*--------------------------------------------------------------------------------
 / Natives Reset
 /-------------------------------------------------------------------------------*/
@@ -74,26 +67,106 @@ native bool:CTX_ResetAll(CTX_TYPE);
 /-------------------------------------------------------------------------------*/
 
 /**
- * Set a single value in an item.
+ * Set a single bool value in an item.
  * @param CTX_TYPE				CTX Type
- * @param CTX_DTYPE				CTX Data Type
  * @param Variable				Variable/Offset alias (see readme files).
  * @param strClassName          Item classname.  
- * @param NewValue				Input (input as a string, even if it's a float or an int).
+ * @param NewValue				Input.
  * @return						Success (bool).
  */
- native bool:CTX_Set(CTX_TYPE, CTX_DTYPE, String:Variable[], String:strClassName[], String:NewValue[]);
+native bool:CTX_SetBool(CTX_TYPE, String:Variable[], String:strClassName[], bool:NewValue);
 
 /**
- * Set a single value in an item.
+ * Get a single bool value from an item.
  * @param CTX_TYPE				CTX Type
- * @param CTX_DTYPE				CTX Data Type
  * @param Variable				Variable/Offset alias (see readme files).
  * @param strClassName          Item classname. 
- * @param ReturnBuffer			Return buffer (for strings)
- * @return						Success (bool) or output (int, float, bool).
+ * @param ReturnBuffer			Return buffer.
+ * @return						Success (bool).
  */
- native bool:CTX_Get(CTX_TYPE, CTX_DTYPE, String:Variable[], String:strClassName[], String:ReturnBuffer[]="");
+native bool:CTX_GetBool(CTX_TYPE, String:Variable[], String:strClassName[], &bool:ReturnedBool);
+
+/**
+ * Set a single float value in an item.
+ * @param CTX_TYPE				CTX Type
+ * @param Variable				Variable/Offset alias (see readme files).
+ * @param strClassName          Item classname.  
+ * @param NewValue				Input.
+ * @return						Success (bool).
+ */
+native bool:CTX_SetFloat(CTX_TYPE, String:Variable[], String:strClassName[], Float:NewValue);
+
+/**
+ * Get a single float value from an item.
+ * @param CTX_TYPE				CTX Type
+ * @param Variable				Variable/Offset alias (see readme files).
+ * @param strClassName          Item classname. 
+ * @param ReturnBuffer			Return buffer.
+ * @return						Success (bool).
+ */
+native bool:CTX_GetFloat(CTX_TYPE, String:Variable[], String:strClassName[], &Float:ReturnedFloat);
+
+/**
+ * Set a single int value in an item.
+ * @param CTX_TYPE				CTX Type
+ * @param Variable				Variable/Offset alias (see readme files).
+ * @param strClassName          Item classname.  
+ * @param NewValue				Input.
+ * @return						Success (bool).
+ */
+native bool:CTX_SetInt(CTX_TYPE, String:Variable[], String:strClassName[], NewValue);
+
+/**
+ * Get a single int value from an item.
+ * @param CTX_TYPE				CTX Type
+ * @param Variable				Variable/Offset alias (see readme files).
+ * @param strClassName          Item classname. 
+ * @param ReturnBuffer			Return buffer.
+ * @return						Success (bool).
+ */
+native bool:CTX_GetInt(CTX_TYPE, String:Variable[], String:strClassName[], &ReturnedInt);
+
+
+/**
+ * Set a single string value in an item.
+ * @param CTX_TYPE				CTX Type
+ * @param Variable				Variable/Offset alias (see readme files).
+ * @param strClassName          Item classname.  
+ * @param NewValue				Input.
+ * @return						Success (bool).
+ */
+ native bool:CTX_SetString(CTX_TYPE, String:Variable[], String:strClassName[], String:NewValue[]);
+
+/**
+ * Get a single string value from an item.
+ * @param CTX_TYPE				CTX Type
+ * @param Variable				Variable/Offset alias (see readme files).
+ * @param strClassName          Item classname. 
+ * @param ReturnBuffer			Return buffer.
+ * @return						Success (bool).
+ */
+native bool:CTX_GetString(CTX_TYPE, String:Variable[], String:strClassName[], String:ReturnBuffer[]);
+
+/**
+ * Set a single string value in an item.
+ * @param CTX_TYPE				CTX Type
+ * @param Variable				Variable/Offset alias (see readme files).
+ * @param strClassName          Item classname.  
+ * @param NewValue				Input.
+ * @return						Success (bool).
+ */
+ native bool:CTX_SetStringPtr(CTX_TYPE, String:Variable[], String:strClassName[], String:NewValue[]);
+
+
+/**
+ * Get a single string ptr value from an item.
+ * @param CTX_TYPE				CTX Type
+ * @param Variable				Variable/Offset alias (see readme files).
+ * @param strClassName          Item classname. 
+ * @param ReturnBuffer			Return buffer.
+ * @return						Success (bool).
+ */
+native bool:CTX_GetStringPtr(CTX_TYPE, String:Variable[], String:strClassName[], String:ReturnBuffer[]);
 
 
 /* Edit nothing below this line */
@@ -116,9 +189,17 @@ public Extension:__ext_ctx =
 #if !defined REQUIRE_EXTENSIONS
 public __ext_ctx_SetNTVOptional()
 {
-MarkNativeAsOptional("CTX_ResetOne");
-MarkNativeAsOptional("CTX_ResetAll");
-MarkNativeAsOptional("CTX_Get");
-MarkNativeAsOptional("CTX_Set");
+	MarkNativeAsOptional("CTX_ResetOne");
+	MarkNativeAsOptional("CTX_ResetAll");
+	MarkNativeAsOptional("CTX_SetInt");
+	MarkNativeAsOptional("CTX_GetInt");
+	MarkNativeAsOptional("CTX_SetBool");
+	MarkNativeAsOptional("CTX_GetBool");
+	MarkNativeAsOptional("CTX_SetFloat");
+	MarkNativeAsOptional("CTX_GetFloat");
+	MarkNativeAsOptional("CTX_SetString");
+	MarkNativeAsOptional("CTX_GetString");
+	MarkNativeAsOptional("CTX_SetStringPtr");
+	MarkNativeAsOptional("CTX_GetStringPtr");
 }
 #endif
