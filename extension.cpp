@@ -41,7 +41,6 @@ ICvar *icvar = NULL;
 IServerGameDLL *server = NULL;
 IServerGameEnts *gameents = NULL;
 IGameConfig *g_pGameConf = NULL;
-IGameConfig *g_pGameMod = NULL;
 CGlobalVars *gpGlobals;
 IServerGameClients *gameclients = NULL;
 int GameID = 0;
@@ -81,13 +80,20 @@ size_t WEAPON_SIZE = 0;
 size_t PLAYER_SIZE = 0;
 size_t OBJECT_SIZE = 0;
 
-
 sp_nativeinfo_t g_ExtensionNatives[] =
 {
-	{ "CTX_Reset",		CTX_ResetOne },
-	{ "CTX_ResetAll",	CTX_ResetAll },
-	{ "CTX_Get",		CTX_Get },
-	{ "CTX_Set",		CTX_Set },
+	{ "CTX_Reset",				CTX_ResetOne },
+	{ "CTX_ResetAll",			CTX_ResetAll },
+	{ "CTX_SetBool",			CTX_SetBool },
+	{ "CTX_GetBool",			CTX_GetBool },
+	{ "CTX_SetFloat",			CTX_SetFloat },
+	{ "CTX_GetFloat",			CTX_GetFloat },
+	{ "CTX_SetInt",				CTX_SetInt },
+	{ "CTX_GetInt",				CTX_GetInt },
+	{ "CTX_SetString",			CTX_SetString },
+	{ "CTX_GetString",			CTX_GetString },
+	{ "CTX_SetStringPtr",		CTX_SetStringPtr },
+	{ "CTX_GetStringPtr",		CTX_GetStringPtr },
 	{ NULL,				NULL }
 };
 
@@ -133,7 +139,7 @@ bool GetInfo(const char *KeyBase, int &Length, int &Offset)
 	}
 	else
 	{
-		Offset = GetKeyValueAsInt(g_pGameMod,COffset);
+		Offset = GetKeyValueAsInt(g_pGameConf,COffset);
 	}
 
 	if(strlen(CLength) < 8)
@@ -143,21 +149,29 @@ bool GetInfo(const char *KeyBase, int &Length, int &Offset)
 	}
 	else
 	{
-		Length = GetKeyValueAsInt(g_pGameMod,CLength);
+		Length = GetKeyValueAsInt(g_pGameConf,CLength);
 	}
 	return true;
 }
 
 bool DoInitialisation()
 {
+	// Initialise to guard
+	g_pPlayerClassInfoData = new ValveDB();
+	g_pPlayerClassInfoOriginalData = new ValveDB();
+	g_pPlayerClassInfoData2 = new ValveDB();
+	g_pPlayerClassInfoOriginalData2 = new ValveDB();
+	g_pWeaponInfoDatabase = new ValveDB();
+	g_pWeaponInfoOriginalDatabase = new ValveDB();
+	g_pObjectDatabase = new ValveDB(); 
+	g_pObjectOriginalDatabase = new ValveDB();
+
 	if(WeaponData)
 	{	
 		if(!SetupWeaponDatabasePointer())
 		{
 			g_pSM->LogMessage(myself, "Disabled: Could not get the weapon database.");
 			WeaponData = false;
-			ValveDB *g_pWeaponInfoDatabase = new ValveDB();
-			ValveDB *g_pWeaponInfoOriginalDatabase = new ValveDB();
 		}
 	}
 
@@ -167,10 +181,6 @@ bool DoInitialisation()
 		{
 			g_pSM->LogMessage(myself, "Disabled: Could not get the player database(s).");
 			PlayerData = false;
-			ValveDB *g_pPlayerClassInfoData = new ValveDB();
-			ValveDB *g_pPlayerClassInfoOriginalData = new ValveDB();
-			ValveDB *g_pPlayerClassInfoData2 = new ValveDB();
-			ValveDB *g_pPlayerClassInfoOriginalData2 = new ValveDB();
 		}
 	}
 
@@ -180,8 +190,6 @@ bool DoInitialisation()
 		{
 			g_pSM->LogMessage(myself, "Disabled: Could not get the player database(s).");
 			ObjectData = false;
-			ValveDB *g_pObjectDatabase = new ValveDB(); 
-			ValveDB *g_pObjectOriginalDatabase = new ValveDB();
 		}
 	}
 
@@ -196,30 +204,19 @@ void Hook_ServerActivate(edict_t *pEdictList, int edictCount, int clientMax)
 
 bool CTXPatcher::SDK_OnLoad(char *error, size_t maxlength, bool late)
 {
+	// Register first
+	sharesys->AddNatives(myself, g_ExtensionNatives);
+	sharesys->RegisterLibrary(myself, "ctx");
+
+
 	char conf_error[255] = "";
 
 	/* This mod's conf */
-	if (!gameconfs->LoadGameConfigFile("ctx.all", &g_pGameConf, conf_error, sizeof(conf_error)))
+	if (!gameconfs->LoadGameConfigFile("ctx.games", &g_pGameConf, conf_error, sizeof(conf_error)))
 	{
 		if (conf_error[0])
 		{
-			snprintf(error, maxlength, "Could not read ctx.all.txt: %s", conf_error);
-			g_pSM->LogMessage(myself, error);											  
-		}
-		return false;
-	}
-
-	// MULTIMOD!
-	int GameID = engine->GetAppID();
-
-	char cfgName[32];
-	sprintf(cfgName, "ctx/ctx.%s", g_pSM->GetGameFolderName());
-
-	if (!gameconfs->LoadGameConfigFile(cfgName, &g_pGameMod, conf_error, sizeof(conf_error)))
-	{
-		if (conf_error[0])
-		{
-			snprintf(error, maxlength, "Could not read %s.txt: %s", cfgName, conf_error);
+			snprintf(error, maxlength, "Could not read ctx/master.games.txt: %s", conf_error);
 			g_pSM->LogMessage(myself, error);											  
 		}
 		return false;
@@ -228,9 +225,11 @@ bool CTXPatcher::SDK_OnLoad(char *error, size_t maxlength, bool late)
 	char *addr;
 	int iOffset;
 
-	WeaponData = GetKeyValueAsBool(g_pGameMod, "weapon_enabled");
-	PlayerData = GetKeyValueAsBool(g_pGameMod, "player_enabled");
-	ObjectData = GetKeyValueAsBool(g_pGameMod, "object_enabled");
+	// TODO: registration
+
+	WeaponData = GetKeyValueAsBool(g_pGameConf, "weapon_enabled");
+	PlayerData = GetKeyValueAsBool(g_pGameConf, "player_enabled");
+	ObjectData = GetKeyValueAsBool(g_pGameConf, "object_enabled");
 
 	if(WeaponData)
 	{
@@ -274,21 +273,20 @@ bool CTXPatcher::SDK_OnLoad(char *error, size_t maxlength, bool late)
 	// Setup data
 	if(WeaponData)
 	{
-		WeaponData = GetInfo(g_pGameMod->GetKeyValue("weapon_key"), WEAPON_CNAME_LENGTH, WEAPON_CNAME_OFFSET);
-		WEAPON_SIZE = GetKeyValueAsInt(g_pGameMod, "__weapon_size");
+		WeaponData = GetInfo(g_pGameConf->GetKeyValue("weapon_key"), WEAPON_CNAME_LENGTH, WEAPON_CNAME_OFFSET);
+		WEAPON_SIZE = GetKeyValueAsInt(g_pGameConf, "__weapon_size");
 	}
 
 	if(PlayerData)
 	{
-		PlayerData = GetInfo(g_pGameMod->GetKeyValue("player_key"), PLAYER_CNAME_LENGTH, PLAYER_CNAME_OFFSET);
-		PLAYER_SIZE = GetKeyValueAsInt(g_pGameMod, "__player_size");
+		PlayerData = GetInfo(g_pGameConf->GetKeyValue("player_key"), PLAYER_CNAME_LENGTH, PLAYER_CNAME_OFFSET);
+		PLAYER_SIZE = GetKeyValueAsInt(g_pGameConf, "__player_size");
 	}
 
 	if(ObjectData)
 	{
-		char Key[80];
-		ObjectData = GetInfo(g_pGameMod->GetKeyValue("object_key"), OBJECT_CNAME_LENGTH, OBJECT_CNAME_OFFSET);
-		OBJECT_SIZE = GetKeyValueAsInt(g_pGameMod, "__object_size");
+		ObjectData = GetInfo(g_pGameConf->GetKeyValue("object_key"), OBJECT_CNAME_LENGTH, OBJECT_CNAME_OFFSET);
+		OBJECT_SIZE = GetKeyValueAsInt(g_pGameConf, "__object_size");
 	}
 
 	g_pCVar = icvar;
@@ -308,10 +306,6 @@ bool CTXPatcher::SDK_OnLoad(char *error, size_t maxlength, bool late)
 			return false;
 		}
 	}
-
-	// Register
-	sharesys->AddNatives(myself, g_ExtensionNatives);
-	sharesys->RegisterLibrary(myself, "ctx");
 
 	g_pSM->LogMessage(myself, "Loaded.");
 
@@ -423,7 +417,7 @@ bool SetupObjectDatabase()
 	g_pObjectDatabase = new ValveDB(); 
 	g_pObjectOriginalDatabase = new ValveDB();
 	
-	int NumObjects = GetKeyValueAsInt(g_pGameMod, "__num_objects");
+	int NumObjects = GetKeyValueAsInt(g_pGameConf, "__num_objects");
 	if(NumObjects == 0)
 	{
 		ObjectData = false;
@@ -472,9 +466,9 @@ bool SetupPlayerDatabasePointer()
 			return false;
 		}
 
-		int Teams = GetKeyValueAsInt(g_pGameMod, "__num_teams");
-		bool QueryByTeam = GetKeyValueAsBool(g_pGameMod, "__query_team");
-		CLASS_COUNT = GetKeyValueAsInt(g_pGameMod, "__num_classes");
+		int Teams = GetKeyValueAsInt(g_pGameConf, "__num_teams");
+		bool QueryByTeam = GetKeyValueAsBool(g_pGameConf, "__query_team");
+		CLASS_COUNT = GetKeyValueAsInt(g_pGameConf, "__num_classes");
 		
 		if(!QueryByTeam && Teams == 2)
 		{
@@ -577,6 +571,11 @@ bool CTXPatcher::SDK_OnMetamodLoad(ISmmAPI *ismm, char *error, size_t maxlen, bo
 
 bool RestoreSingleObject(ValveDB *DB1, ValveDB *DB2, size_t size, const char *Classname)
 {
+	if(DB1 == NULL || DB2 == NULL)
+	{
+		g_pSM->LogMessage(myself, "Database is null -- unsupported feature or serious error.");
+		return false;
+	}
 	unsigned short GameIndex = DB1->Find(Classname);
 	unsigned short OriginalIndex = DB2->Find(Classname);
 	if(DB1->IsValidIndex(GameIndex) && DB2->IsValidIndex(OriginalIndex))
@@ -590,6 +589,11 @@ bool RestoreSingleObject(ValveDB *DB1, ValveDB *DB2, size_t size, const char *Cl
 // Restore weapons by name
 bool RestoreSet(ValveDB *DB1, ValveDB *DB2, int NAME_OFFSET, int NAME_LENGTH, size_t size)
 {
+	if(DB1 == NULL || DB2 == NULL)
+	{
+		g_pSM->LogMessage(myself, "Database is null -- unsupported feature or serious error.");
+		return false;
+	}
 	for(unsigned short i = DB2->First(); i != DB2->InvalidIndex(); i = DB2->Next(i))
 	{
 		char className[128];
@@ -600,252 +604,182 @@ bool RestoreSet(ValveDB *DB1, ValveDB *DB2, int NAME_OFFSET, int NAME_LENGTH, si
 	return true;
 }
 
+
+void *GetOffset(int iCTX_TYPE, char *CTX_DTYPE, char *Target, char *Variable, int &Length)
+{
+	const char *CTX_TYPE;
+	ValveDB *DB;
+	switch(iCTX_TYPE)
+	{
+		case CTX_PLAYER:
+			CTX_TYPE = "player";
+			DB = g_pPlayerClassInfoData;
+			if(!PlayerData)
+			{
+				g_pSM->LogMessage(myself, "PlayerData is not supported for this mod."); return NULL;
+			}
+			break;
+		case CTX_PLAYER_TEAM2:
+			CTX_TYPE = "player";
+			DB = g_pPlayerClassInfoData2;
+			if(!PlayerData)
+			{
+				g_pSM->LogMessage(myself, "PlayerData is not supported for this mod."); return NULL;
+			}
+			break;
+		case CTX_WEAPON:
+			CTX_TYPE = "weapon";
+			DB = g_pWeaponInfoDatabase;
+			if(!WeaponData)
+			{
+				g_pSM->LogMessage(myself, "WeaponData is not supported for this mod."); return NULL;
+			}
+			break;
+		case CTX_OBJECT:
+			CTX_TYPE = "object";
+			DB = g_pObjectDatabase;
+			if(!ObjectData)
+			{
+				g_pSM->LogMessage(myself, "ObjectData is not supported for this mod."); return NULL;
+			}
+			break;
+		default:
+			g_pSM->LogMessage(myself, "Unknown CTX_TYPE"); return NULL;
+	}
+
+	char BaseKey[80];
+	sprintf(BaseKey, "%s_%s_%s", CTX_TYPE, CTX_DTYPE, Variable);
+
+	int Offset = 0;
+	if(!GetInfo(BaseKey, Length, Offset))
+	{
+		g_pSM->LogMessage(myself, "Failed to get length and/or offsets (L: %i, O: %i)", Length, Offset);
+		return NULL;
+	}
+	if(Length == 0)
+	{
+		g_pSM->LogMessage(myself, "Length of zero detected -- invalid call.");
+		return NULL;
+	}
+
+	unsigned short DBIndex = DB->Find(Target);
+	if(!DB->IsValidIndex(DBIndex))
+	{
+		g_pSM->LogMessage(myself, "Invalid item name.");
+		return NULL;
+	}
+	return (void*)((char*)DB->Element(DBIndex)+Offset);
+}
+
 // ----------------------------------------------------------------------------
 // NATIVES
 // ----------------------------------------------------------------------------
 
-static cell_t CTX_Set(IPluginContext *pContext, const cell_t *params)
+// native bool:CTX_SetBool(CTX_TYPE, String:Variable[], String:strClassName[], bool:NewValue);
+static cell_t CTX_SetBool(IPluginContext *pContext, const cell_t *params)
 {
-	const char *CTX_TYPE;
-	ValveDB *DB1;
-	ValveDB *DB2;
-
-	switch(params[1])
-	{
-		case CTX_PLAYER:
-			CTX_TYPE = "player";
-			DB1 = g_pPlayerClassInfoData;
-			DB2 = g_pPlayerClassInfoOriginalData;
-			if(!PlayerData)
-			{
-				pContext->ThrowNativeError("PlayerData is not supported for this mod."); return false;
-			}
-			break;
-		case CTX_PLAYER_TEAM2:
-			CTX_TYPE = "player";
-			DB1 = g_pPlayerClassInfoData2;
-			DB2 = g_pPlayerClassInfoOriginalData2;
-			if(!PlayerData)
-			{
-				pContext->ThrowNativeError("PlayerData is not supported for this mod."); return false;
-			}
-			break;
-		case CTX_WEAPON:
-			CTX_TYPE = "weapon";
-			DB1 = g_pWeaponInfoDatabase;
-			DB2 = g_pWeaponInfoOriginalDatabase;
-			if(!WeaponData)
-			{
-				pContext->ThrowNativeError("WeaponData is not supported for this mod."); return false;
-			}
-			break;
-		case CTX_OBJECT:
-			CTX_TYPE = "object";
-			DB1 = g_pObjectDatabase;
-			DB2 = g_pObjectOriginalDatabase;
-			if(!ObjectData)
-			{
-				pContext->ThrowNativeError("ObjectData is not supported for this mod."); return false;
-			}
-			break;
-		default:
-			pContext->ThrowNativeError("Unknown CTX_TYPE"); return false;
-			return false;
-	}
-
-	const char *CTX_DTYPE;
-	switch(params[2])
-	{
-		case CTX_STRING:
-			CTX_DTYPE = "string";break;
-		case CTX_BOOL:
-			CTX_DTYPE = "bool";break;
-		case CTX_INT:
-			CTX_DTYPE = "int";break;
-		case CTX_FLOAT:
-			CTX_DTYPE = "float";break;
-		case CTX_PTR_STRING:
-			CTX_DTYPE = "ptr_string";break;
-		default:
-			pContext->ThrowNativeError("Unknown CTX_DTYPE"); return false;
-			return false;
-	}
-
-	char *Variable; pContext->LocalToString(params[3], &Variable);
-	char *Target; pContext->LocalToString(params[4], &Target);
-	char BaseKey[80];
-	sprintf(BaseKey, "%s_%s_%s", CTX_TYPE, CTX_DTYPE, Variable);
-
-	int Length = 0; int Offset = 0;
-	if(!GetInfo(BaseKey, Length, Offset))
-	{
-		pContext->ThrowNativeError("Failed to get length and/or offsets (L: %i, O: %i)", Length, Offset);
-		return false;
-	}
-	if(Length == 0)
-	{
-		pContext->ThrowNativeError("Length of zero detected -- invalid call.");
-		return false;
-	}
-
-	unsigned short DBIndex = DB1->Find(Target);
-	if(!DB1->IsValidIndex(DBIndex))
-	{
-		pContext->ThrowNativeError("Data was not found in the respective database; incorrect key.");
-		return false;
-	}
-
-	char *NewValue; pContext->LocalToString(params[5], &NewValue);
-	void *Data = DB1->Element(DBIndex);
-	switch(params[2])
-	{
-		case CTX_STRING:
-			memcpy(((char*)Data+Offset), NewValue, Length);
-			return true;
-			break;
-		case CTX_BOOL:
-			*(bool*)((char*)Data+Offset) = (bool)atoi(NewValue);
-			return true;
-			break;
-		case CTX_INT:
-			*(int*)((char*)Data+Offset) = atoi(NewValue);
-			return true;
-			break;
-		case CTX_FLOAT:
-			*(float*)((char*)Data+Offset) = atof(NewValue);
-			return true;
-			break;
-		case CTX_PTR_STRING:
-			*(char**)((char*)Data+Offset) = NewValue;
-			return true;
-			break;
-		default:
-			pContext->ThrowNativeError("Unknown CTX_DTYPE"); return false;
-			return false;
-	}
-
-	pContext->ThrowNativeError("WARNING: SOMETHING WENT HORRIBLY WRONG!"); return false;
-	return false; // Good cell, bad result :3
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "bool", Target, Variable, Length);
+	if(Data == NULL) return false;
+	*(bool*)(Data) = params[4];
+	return true;
 }
 
-static cell_t CTX_Get(IPluginContext *pContext, const cell_t *params)
+// native bool:CTX_GetBool(CTX_TYPE, String:Variable[], String:strClassName[], bool:ReturnedBool)
+static cell_t CTX_GetBool(IPluginContext *pContext, const cell_t *params)
 {
-	const char *CTX_TYPE;
-	ValveDB *DB1;
-	ValveDB *DB2;
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "bool", Target, Variable, Length);
+	if(Data == NULL) return false;
+	cell_t *addr;
+	pContext->LocalToPhysAddr(params[4], &addr); 
+	*addr = *(bool*)(Data);
+	return true;
+}
 
-	switch(params[1])
-	{
-		case CTX_PLAYER:
-			CTX_TYPE = "player";
-			DB1 = g_pPlayerClassInfoData;
-			DB2 = g_pPlayerClassInfoOriginalData;
-			if(!PlayerData)
-			{
-				pContext->ThrowNativeError("PlayerData is not supported for this mod."); return false;
-			}
-			break;
-		case CTX_PLAYER_TEAM2:
-			CTX_TYPE = "player";
-			DB1 = g_pPlayerClassInfoData2;
-			DB2 = g_pPlayerClassInfoOriginalData2;
-			if(!PlayerData)
-			{
-				pContext->ThrowNativeError("PlayerData is not supported for this mod."); return false;
-			}
-			break;
-		case CTX_WEAPON:
-			CTX_TYPE = "weapon";
-			DB1 = g_pWeaponInfoDatabase;
-			DB2 = g_pWeaponInfoOriginalDatabase;
-			if(!WeaponData)
-			{
-				pContext->ThrowNativeError("WeaponData is not supported for this mod."); return false;
-			}
-			break;
-		case CTX_OBJECT:
-			CTX_TYPE = "object";
-			DB1 = g_pObjectDatabase;
-			DB2 = g_pObjectOriginalDatabase;
-			if(!ObjectData)
-			{
-				pContext->ThrowNativeError("ObjectData is not supported for this mod."); return false;
-			}
-			break;
-		default:
-			pContext->ThrowNativeError("Unknown CTX_TYPE"); return false;
-			return false;
-	}
+// native bool:CTX_SetFloat(CTX_TYPE, String:Variable[], String:strClassName[], Float:NewValue);
+static cell_t CTX_SetFloat(IPluginContext *pContext, const cell_t *params)
+{
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "float", Target, Variable, Length);
+	if(Data == NULL) return false;
+	*(float*)(Data) = sp_ctof(params[4]);
+	return true;
+}
 
-	const char *CTX_DTYPE;
-	switch(params[2])
-	{
-		case CTX_STRING:
-			CTX_DTYPE = "string";break;
-		case CTX_BOOL:
-			CTX_DTYPE = "bool";break;
-		case CTX_INT:
-			CTX_DTYPE = "int";break;
-		case CTX_FLOAT:
-			CTX_DTYPE = "float";break;
-		case CTX_PTR_STRING:
-			CTX_DTYPE = "ptr_string";break;
-		default:
-			pContext->ThrowNativeError("Unknown CTX_DTYPE"); return false;
-			return false;
-	}
+// native bool:CTX_GetFloat(CTX_TYPE, String:Variable[], String:strClassName[], Float:ReturnedFloat)
+static cell_t CTX_GetFloat(IPluginContext *pContext, const cell_t *params)
+{
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "float", Target, Variable, Length);
+	if(Data == NULL) return false;
+	cell_t *addr;
+	pContext->LocalToPhysAddr(params[4], &addr); 
+	*addr = sp_ftoc(*(float*)(Data));
+	return true;
+}
 
-	char *Variable; pContext->LocalToString(params[3], &Variable);
-	char *Target; pContext->LocalToString(params[4], &Target);
-	char BaseKey[80];
-	sprintf(BaseKey, "%s_%s_%s", CTX_TYPE, CTX_DTYPE, Variable);
+// native bool:CTX_SetInt(CTX_TYPE, String:Variable[], String:strClassName[], NewValue);
+static cell_t CTX_SetInt(IPluginContext *pContext, const cell_t *params)
+{
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "int", Target, Variable, Length);
+	if(Data == NULL) return false;
+	*(int*)(Data) = params[4];
+	return true;
+}
 
-	int Length = 0; int Offset = 0;
-	if(!GetInfo(BaseKey, Length, Offset))
-	{
-		pContext->ThrowNativeError("Failed to get length and/or offsets (L: %i, O: %i)", Length, Offset);
-		return false;
-	}
-	if(Length == 0)
-	{
-		pContext->ThrowNativeError("Length of zero detected -- invalid call.");
-		return false;
-	}
+// native bool:CTX_GetInt(CTX_TYPE, String:Variable[], String:strClassName[], ReturnedInt)
+static cell_t CTX_GetInt(IPluginContext *pContext, const cell_t *params)
+{
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "int", Target, Variable, Length);
+	if(Data == NULL) return false;
+	cell_t *addr;
+	pContext->LocalToPhysAddr(params[4], &addr); 
+	*addr = *(int*)(Data);
+	return true;
+}
 
-	unsigned short DBIndex = DB1->Find(Target);
-	if(!DB1->IsValidIndex(DBIndex))
-	{
-		pContext->ThrowNativeError("Data was not found in the respective database; incorrect key.");
-		return false;
-	}
+// native bool:CTX_SetString(CTX_TYPE, String:Variable[], String:strClassName[], String:NewValue[]);
+static cell_t CTX_SetString(IPluginContext *pContext, const cell_t *params)
+{
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "string", Target, Variable, Length);
+	if(Data == NULL) return false;
+	char *NewValue; pContext->LocalToString(params[4], &NewValue);
+	memcpy(Data, NewValue, Length);
+	return true;
+}
 
-	void *Data = DB1->Element(DBIndex);
-	switch(params[2])
-	{
-		case CTX_STRING:
-			pContext->StringToLocal(params[5], Length, ((char*)Data+Offset));
-			return true;
-			break;
-		case CTX_BOOL:
-			return *(bool*)((char*)Data+Offset);
-			break;
-		case CTX_INT:
-			return *(int*)((char*)Data+Offset);
-			break;
-		case CTX_FLOAT:
-			return sp_ftoc(*(float*)((char*)Data+Offset));
-			break;
-		case CTX_PTR_STRING:
-			pContext->StringToLocal(params[5], sizeof(*((char*)Data+Offset)), ((char*)Data+Offset));
-			return true;
-			break;
-		default:
-			pContext->ThrowNativeError("Unknown CTX_DTYPE"); return false;
-			return false;
-	}
+// native bool:CTX_GetString(CTX_TYPE, String:Variable[], String:strClassName[], String:ReturnBuffer[])
+static cell_t CTX_GetString(IPluginContext *pContext, const cell_t *params)
+{
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "string", Target, Variable, Length);
+	if(Data == NULL) return false;
+	pContext->StringToLocal(params[4], Length, (char*)Data);
+	return true;
+}
 
-	pContext->ThrowNativeError("WARNING: SOMETHING WENT HORRIBLY WRONG!"); return false;
-	return false; // Good cell, bad result :3
+// native bool:CTX_SetStringPtr(CTX_TYPE, String:Variable[], String:strClassName[], String:NewValue[]);
+static cell_t CTX_SetStringPtr(IPluginContext *pContext, const cell_t *params)
+{
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "ptr_string", Target, Variable, Length);
+	if(Data == NULL) return false;
+	char *NewValue; pContext->LocalToString(params[4], &NewValue);
+	*(char**)(Data) = NewValue;	return true;
+}
+
+// native bool:CTX_GetStringPtr(CTX_TYPE, String:Variable[], String:strClassName[], String:ReturnBuffer[])
+static cell_t CTX_GetStringPtr(IPluginContext *pContext, const cell_t *params)
+{
+	int Length; char *Target; pContext->LocalToString(params[3], &Target); char *Variable; pContext->LocalToString(params[2], &Variable);
+	void *Data = GetOffset(params[1], "ptr_string", Target, Variable, Length);
+	if(Data == NULL) return false;
+	pContext->StringToLocal(params[4], sizeof((char*)Data), (char*)Data);
+	return true;
 }
 
 static cell_t CTX_ResetOne(IPluginContext *pContext, const cell_t *params)
@@ -888,8 +822,7 @@ static cell_t CTX_ResetOne(IPluginContext *pContext, const cell_t *params)
 		default:
 			return false;
 	}
-	RestoreSingleObject(DB1, DB2, size, ItemName);
-	return true;
+	return RestoreSingleObject(DB1, DB2, size, ItemName);
 }
 
 static cell_t CTX_ResetAll(IPluginContext *pContext, const cell_t *params)
@@ -930,6 +863,5 @@ static cell_t CTX_ResetAll(IPluginContext *pContext, const cell_t *params)
 		default:
 			return false;
 	}
-	RestoreSet(DB1, DB2, NAME_OFFSET, NAME_LENGTH, size);
-	return true;
+	return RestoreSet(DB1, DB2, NAME_OFFSET, NAME_LENGTH, size);
 }

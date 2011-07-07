@@ -1,0 +1,35 @@
+"Games"
+{
+	"#default"
+	{
+		"#supported"
+		{
+			"game"		"dod"
+			"game"		"tf"
+			"game"		"cstrike"
+		}
+		"Offsets"
+		{
+			// Weapon Database offset for Windows
+			"WeaponDatabase_Offset"
+			{
+				"windows"		"12"
+			}
+		}
+		"Signatures"
+		{
+			// Weapon Database 'SubCall' used on Windows
+			"ReadWeaponDataFromFileForSlot_SubCall_01"
+			{
+				"library"		"server"
+				"windows"		"\x83\xEC\x08\x85\xF6\x2A\x2A\x8D\x04\x24\x50\xB9"
+			}
+			// Linux database patcher
+			"m_WeaponInfoDatabase"
+			{
+				"library"		"server"
+				"linux"			"@_ZL20m_WeaponInfoDatabase"				
+			}
+		}
+	}
+}

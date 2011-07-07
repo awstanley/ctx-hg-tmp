@@ -1,0 +1,22 @@
+"Game Master"
+{
+	"common.txt"
+	{
+	
+	}
+	
+	"ctx.cstrike.txt"
+	{
+		"game"		"cstrike"
+	}
+	
+	"ctx.tf.txt"
+	{
+		"game"		"tf"
+	}
+	
+	"ctx.dod.txt"
+	{
+		"game"		"dod"
+	}
+}
